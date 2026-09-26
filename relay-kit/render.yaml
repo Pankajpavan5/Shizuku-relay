@@ -1,0 +1,15 @@
+# Render.com blueprint — creates the whole service in one click.
+# Dashboard → New → Blueprint → point at this repo/folder.
+services:
+  - type: web
+    name: shizukumcp
+    runtime: python
+    plan: free
+    buildCommand: ""          # pure stdlib — nothing to build
+    startCommand: python3 server.py
+    healthCheckPath: /api/health
+    envVars:
+      - key: RELAY_TOKEN
+        generateValue: true       # random secret — copy it from Render → Environment into the phone app
+      - key: PYTHON_VERSION
+        value: "3.12"

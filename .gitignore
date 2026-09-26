@@ -1,0 +1,3 @@
+# 40MB cloudflared binary — distributed inside shizuku-relay-kit.txt (zip), keep out of plain git
+relay-kit/bin/
+__pycache__/
