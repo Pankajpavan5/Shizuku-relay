@@ -17,7 +17,6 @@ import contextvars
 import json
 import os
 import re
-import secrets
 import sys
 import time
 import uuid
@@ -728,9 +727,9 @@ if __name__ == "__main__":
         import uvicorn
 
         if not os.getenv("RELAY_TOKEN"):
-            print("RELAY_TOKEN is not set: this boot uses a random token, so your phone app and the\n"
-                  "page will need it and it changes on every restart. Set RELAY_TOKEN in your host's\n"
-                  "environment (Render: service env vars) to keep them stable.", flush=True)
+            print("RELAY_TOKEN is not set: using the built-in default, same on every boot. Set\n"
+                  "RELAY_TOKEN in your host's environment (Render: service env vars) to rotate it.",
+                  flush=True)
         print(f"relay token: {TOKEN}   console: /console?token={TOKEN}")
         uvicorn.run(build_app(os.getenv("MCP_PATH", "/mcp")), host="0.0.0.0",
                     port=int(os.getenv("PORT", 8000)), log_level="warning")
