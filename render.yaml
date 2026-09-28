@@ -1,0 +1,26 @@
+# Render Blueprint — one free web service running the whole arena server
+# (MCP for the AIs, relay API for the phone, page for you; one process, one port).
+#
+# Deploy: push this folder to a GitHub repo, then in Render:
+#   New → Blueprint → pick the repo → Apply.
+#
+# PORT is injected by Render (10000) and server.py already reads it; no tunnel is needed,
+# Render gives you the public HTTPS URL that the connectors and the phone app use.
+services:
+  - type: web
+    name: arena-mcp
+    runtime: python
+    plan: free                # 512 MB RAM / 0.1 CPU, spins down after 15 min idle
+    region: singapore         # closest to India. others: oregon, ohio, virginia, frankfurt
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py
+    healthCheckPath: /api/health   # unauthenticated on purpose, so Render can probe it
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13"         # mcp 2.x needs >=3.11
+      - key: RELAY_TOKEN
+        value: d31eeff29eb82855   # keep it matching the phone app; change it and update the app
+#
+# Free plan has no persistent disk, so chat.jsonl lives only for the life of the instance:
+# a deploy, restart, or spin-down starts an empty chat. The job queue is in memory anyway.
+# Want history to survive? Render disks need a paid instance type; or run the server at home.

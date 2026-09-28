@@ -1,0 +1,4 @@
+# Direct imports in server.py — mcp pulls pydantic, anyio and the rest transitively.
+mcp>=2.2,<3
+starlette>=1,<2
+uvicorn>=0.30
