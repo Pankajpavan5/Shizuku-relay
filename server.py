@@ -271,7 +271,8 @@ relay = Relay()
 
 # which AI called us last, so the page can show who's actually connected
 AGENTS: dict[str, dict] = {}
-_NOISE = ("curl/", "python-urllib", "python-httpx", "mozilla", "testclient", "okhttp")
+_NOISE = ("curl/", "python-urllib", "python-httpx", "mozilla", "testclient", "okhttp",
+          "go-http-client", "kube-probe", "wget", "render", "healthcheck")  # probes, not AIs
 
 
 def note_ai(ua):
