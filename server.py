@@ -30,7 +30,10 @@ from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.routing import Route
 
 LOG = Path(os.getenv("CHAT_LOG", "chat.jsonl"))
-TOKEN = os.getenv("RELAY_TOKEN") or secrets.token_hex(8)
+# Stable default (the token the Shizuku Relay app ships with) instead of a fresh random one per
+# boot: on hosts like Render a random token would 401 the phone app and the page after every restart.
+# Rotate by setting RELAY_TOKEN in the environment, then update the app and the page.
+TOKEN = os.getenv("RELAY_TOKEN") or "d31eeff29eb82855"
 POLL_SECONDS = int(os.getenv("POLL_SECONDS", 25))  # how long a device long-poll is held open
 QUEUE_TTL, JOB_TTL, MAX_OUTPUT = 300, 3600, 512 * 1024
 
@@ -558,8 +561,20 @@ class LogRequests:  # the access log: method, path, status, and which AI's User-
             await send(message)
 
         await self.app(scope, receive, send_wrapper)
-        print(f"{scope['method']} {scope['path']} -> {status} <- {ua}", flush=True)
+        shown = scope["path"].replace(TOKEN, "<token>")  # don't write the secret into logs
+        print(f"{scope['method']} {shown} -> {status} <- {ua}", flush=True)
         note_ai(ua)
+
+
+class TokenInPath:  # "https://host/<token>" == "https://host", so one URL works everywhere
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["path"].startswith(f"/{TOKEN}"):
+            rest = scope["path"][len(TOKEN) + 1:]
+            scope = scope | {"path": rest or "", "raw_path": (rest or "").encode()}
+        await self.app(scope, receive, send)
 
 
 class RootIsMcp:  # bare hostname: connectors need MCP, humans need the page. Both live at "/".
@@ -582,7 +597,7 @@ def build_app(path="/mcp"):
     # isn't a loopback-only bind, so the localhost Host-header guard stays off for the tunnel.
     app = server.streamable_http_app(streamable_http_path=path, host="0.0.0.0")
     app.routes.extend(ROUTES)  # relay API + console ride the same port/tunnel as MCP
-    return LogRequests(RootIsMcp(app, path))
+    return LogRequests(TokenInPath(RootIsMcp(app, path)))
 
 
 # ----------------------------------------------------------------- checks
@@ -682,6 +697,16 @@ def _selftest():  # python server.py --selftest
         assert chat_tail()[-1]["text"] == "hi from the page"  # the AIs' read() sees page messages too
         assert c.post("/api/say", headers=h, json={"text": "  "}).status_code == 400
         assert b"Arena" in c.get("/").content and c.get("/console").status_code == 200
+
+    with TestClient(build_app()) as c:  # "/<token>" must behave exactly like "/"
+        assert b"Arena" in c.get(f"/{TOKEN}", headers={"accept": "text/html"}).content
+        r = c.post(f"/{TOKEN}", headers={"accept": "application/json, text/event-stream"},
+                   json={"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                         "params": {"protocolVersion": "2025-06-18", "capabilities": {},
+                                    "clientInfo": {"name": "t", "version": "1"}}})
+        assert r.status_code == 200 and b"serverInfo" in r.content
+        assert c.get(f"/{TOKEN}/api/devices").status_code == 401  # path token is not auto-auth
+        assert c.get(f"/{TOKEN}/console", headers={"X-Relay-Token": TOKEN}).status_code == 200
 
     with TestClient(build_app()) as c:  # "/" is MCP for connectors and a page for humans
         assert b"Arena" in c.get("/", headers={"accept": "text/html"}).content
